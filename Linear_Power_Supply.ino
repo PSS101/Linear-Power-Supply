@@ -12,14 +12,14 @@ ADS1115 ADS(0x48);
 LiquidCrystal_I2C lcd(0x27,20,4);
 
 const int CS_PIN = 10; 
-volatile int re1=1200,re2=100,re1C=0,re2C=0;
+volatile int re1=1200,re2=1,re1C=0,re2C=0;
 int iRes=1,vRes=5,v=0;
 unsigned long t = 0;
 unsigned long on=0;
 unsigned long t1=0,t2=0;
 volatile unsigned long tc1=0,tc2=0;
-float voltage,current,iset,power,c=0;
-bool s1=0,s2=0,currentS1=1,currentS2=1,lastS1=0,lastS2=0;
+float voltage,current,iset,power,c=0,cOffset=0.0;
+bool s1=0,s2=0,currentS1=0,currentS2=0,lastS1=0,lastS2=0;
 
 void setup() {
   pinMode(CS_PIN, OUTPUT);
@@ -51,6 +51,19 @@ void setup() {
   lcd.print("LINEAR PSU");
   buzzer(128,250);
   delay(1000);
+  lcd.clear();
+  lcd.print("Calibration...");
+  c=0;
+  for(int i=0;i<50;i++){
+    c += ADS.toVoltage(ADS.readADC(0)); 
+  }
+  c=c/50.0;
+  cOffset = c;
+  
+  delay(250);
+  lcd.clear();
+  lcd.print("Calibrated");
+  delay(250);
   lcd.clear();
 }
 
@@ -142,16 +155,16 @@ void loop() {
   }
   if(currentS2==1 && lastS2==0){
     if(millis()-t2>1000){
-      iRes = 16;
+      iRes = 5;
       lcd.clear();
       lcd.setCursor(0,0);
-      lcd.print("IRes: 100mA");
+      lcd.print("IRes: 5 Turns");
     }
     else{
       iRes = 1;
       lcd.clear();
       lcd.setCursor(0,0);
-      lcd.print("IRes: 1mA");
+      lcd.print("IRes: 1 Turn");
       
     }
     buzzer(128,250);
@@ -161,16 +174,18 @@ void loop() {
   lastS2 = currentS2;
 
   v=0;c=0;
-  for(int i=0;i<50;i++){
+  for(int i=0;i<100;i++){
     v += analogRead(A2);
+  }
+  for(int i=0;i<50;i++){
     c += ADS.toVoltage(ADS.readADC(0)); 
   }
-  v/=50; c/=50;
+  v/=100.0; c/=50.0;
   
   voltage = (v * voltageGain)/ 1023.0;
   voltage = voltage>1.0? voltage+1.0:voltage;
-  iset = (25.0 * re2)/4095.0;
-  current = c*10;
+  iset = (25.0 * 4.2 *re2)/4095.0;
+  current = (c*10.0*4.2) - cOffset;
   if(voltage<0) voltage=0.0;
   if(iset<0) iset = 0.0;
   if(current<0) current = 0.0;
